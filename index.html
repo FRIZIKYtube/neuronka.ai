@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>neuronka.ai</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f7f7f8; --text:#1a1a1a; --muted:#6e6e80;
+    --border:#e3e3e8; --accent:#10a37f; --accent-hover:#0e8f6f;
+    --shadow:rgba(0,0,0,.06); --danger:#c0392b; --gold:#caa14e;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;}
+
+  /* ---------- ЭКРАН ВХОДА ---------- */
+  #loginScreen{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center;}
+  #loginScreen .logo{font-size:1.7rem;font-weight:700;letter-spacing:-.02em;}
+  #loginScreen p{color:var(--muted);max-width:380px;margin:0;}
+  #telegram-login-container{min-height:40px;}
+  .manual-login{display:flex;flex-direction:column;gap:10px;width:280px;}
+  .manual-login input{padding:12px 14px;border:1px solid var(--border);border-radius:12px;font-size:.95rem;font-family:inherit;}
+  .manual-login button, .primary-btn{background:var(--accent);color:#fff;border:none;border-radius:999px;padding:12px 22px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
+  .manual-login button:hover, .primary-btn:hover{background:var(--accent-hover);}
+  .or-sep{color:var(--muted);font-size:.8rem;}
+
+  /* ---------- APP LAYOUT ---------- */
+  #app{display:none;height:100vh;}
+  #app.active{display:flex;}
+
+  #sidebar{width:260px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px;gap:14px;}
+  #sidebar .logo{font-weight:700;font-size:1.1rem;padding:0 4px;}
+  #newChatBtn{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:10px;font-weight:600;cursor:pointer;font-family:inherit;}
+  #newChatBtn:hover{background:var(--accent-hover);}
+  #chatList{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
+  .chat-item{padding:10px 12px;border-radius:10px;cursor:pointer;font-size:.88rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-item:hover{background:var(--border);}
+  .chat-item.active{background:var(--border);font-weight:600;}
+
+  #coinsBox{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;font-size:.85rem;}
+  #coinsBox .coins-val{font-size:1.15rem;font-weight:700;color:var(--accent);}
+  #coinsBox button{margin-top:8px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;font-family:inherit;font-size:.8rem;}
+
+  #userBox{display:flex;align-items:center;gap:8px;padding:8px;font-size:.85rem;color:var(--muted);}
+  #userBox img{width:28px;height:28px;border-radius:50%;}
+
+  /* ---------- ЧАТ ---------- */
+  #main{flex:1;display:flex;flex-direction:column;position:relative;background:var(--bg);}
+  #topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;border-bottom:1px solid var(--border);}
+  #topbar .title{font-weight:600;}
+  .badge-top{background:var(--gold);color:#fff;font-size:.7rem;padding:3px 9px;border-radius:999px;font-weight:700;}
+
+  #messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px;}
+  .msg{max-width:70%;padding:12px 16px;border-radius:16px;font-size:.95rem;line-height:1.45;white-space:pre-wrap;}
+  .msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
+  .msg.bot{align-self:flex-start;background:var(--panel);border:1px solid var(--border);border-bottom-left-radius:4px;}
+  .msg.system{align-self:center;background:#fde8e8;color:var(--danger);border-radius:10px;font-size:.85rem;}
+  .msg a{color:inherit;}
+  .typing{align-self:flex-start;display:flex;gap:4px;padding:14px 16px;background:var(--panel);border:1px solid var(--border);border-radius:16px;border-bottom-left-radius:4px;}
+  .typing span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite ease-in-out;}
+  .typing span:nth-child(2){animation-delay:.2s;}
+  .typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.25;transform:translateY(0);}40%{opacity:1;transform:translateY(-3px);}}
+
+  /* поле ввода — изначально по центру первого экрана, потом "переезжает" вниз */
+  #inputWrap{padding:18px 24px;border-top:1px solid var(--border);transition:all .25s ease;}
+  #inputWrap.centered{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;max-width:640px;border-top:none;}
+  .input-card{display:flex;align-items:flex-end;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:10px 10px 10px 16px;box-shadow:0 4px 16px var(--shadow);}
+  #messageInput{flex:1;border:none;background:transparent;resize:none;outline:none;font-family:inherit;font-size:.97rem;max-height:160px;min-height:24px;padding:6px 0;}
+  #fileBtn{background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);padding:6px;}
+  #sendBtn{background:var(--accent);color:#fff;border:none;border-radius:50%;width:38px;height:38px;cursor:pointer;flex-shrink:0;font-size:1rem;}
+  #sendBtn:hover{background:var(--accent-hover);}
+  #sendBtn:disabled{opacity:.5;cursor:not-allowed;}
+  #fileInput{display:none;}
+  #lockNotice{display:none;text-align:center;color:var(--danger);font-size:.85rem;margin-top:8px;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:12px 22px;border-radius:12px;font-size:.85rem;opacity:0;pointer-events:none;transition:all .25s ease;z-index:50;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.error{background:var(--danger);}
+
+  /* модалка подписки */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);align-items:center;justify-content:center;z-index:60;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:18px;padding:24px;width:320px;display:flex;flex-direction:column;gap:12px;}
+  .modal h3{margin:0;}
+  .plan{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+  .plan button{background:var(--accent);color:#fff;border:none;border-radius:999px;padding:7px 16px;font-size:.8rem;cursor:pointer;}
+  .modal .close-link{text-align:center;color:var(--muted);font-size:.85rem;cursor:pointer;margin-top:4px;}
+
+  @media(max-width:760px){
+    #sidebar{position:fixed;left:-280px;top:0;bottom:0;z-index:40;transition:left .2s;}
+    #sidebar.open{left:0;}
+    #inputWrap.centered{width:88%;}
+    .msg{max-width:88%;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= ЭКРАН ВХОДА ================= -->
+<div id="loginScreen">
+  <div class="logo">neuronka.ai</div>
+  <p>Войдите через Telegram, чтобы начать общение с нейросетью и получить доступ к НейроКоинам, реферальной программе и истории чатов.</p>
+  <div id="telegram-login-container"></div>
+  <div class="or-sep">или войдите вручную (если виджет не настроен)</div>
+  <div class="manual-login">
+    <input id="manualName" placeholder="Ваше имя">
+    <input id="manualChatId" placeholder="Ваш Telegram chat_id">
+    <button onclick="manualLogin()">Войти</button>
+  </div>
+</div>
+
+<!-- ================= ПРИЛОЖЕНИЕ ================= -->
+<div id="app">
+  <div id="sidebar">
+    <div class="logo">neuronka.ai</div>
+    <button id="newChatBtn" onclick="createChat()">+ Новый чат</button>
+    <div id="chatList"></div>
+    <div id="coinsBox">
+      🪙 НейроКоины: <span class="coins-val" id="coinsVal">0</span>
+      <button onclick="openSubModal()">Подписка</button>
+      <button onclick="copyRefLink()">Реферальная ссылка (+15)</button>
+    </div>
+    <div id="userBox"><span id="userName"></span></div>
+  </div>
+
+  <div id="main">
+    <div id="topbar">
+      <div class="title" id="chatTitle">Новый чат</div>
+      <div id="subBadge"></div>
+    </div>
+    <div id="messages"></div>
+    <div id="inputWrap" class="centered">
+      <div class="input-card">
+        <button id="fileBtn" onclick="document.getElementById('fileInput').click()" title="Прикрепить файл">📎</button>
+        <input type="file" id="fileInput" onchange="handleFile(event)">
+        <textarea id="messageInput" rows="1" placeholder="Спросите что-нибудь у neuronka.ai..."></textarea>
+        <button id="sendBtn" onclick="sendMessage()">➤</button>
+      </div>
+      <div id="lockNotice"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- модалка подписки -->
+<div class="modal-bg" id="subModalBg">
+  <div class="modal">
+    <h3>Подписка Нейронка ТОП</h3>
+    <div class="plan"><span>Неделя — 50 🪙</span><button onclick="buySub('week',50,7)">Купить</button></div>
+    <div class="plan"><span>Месяц — 150 🪙</span><button onclick="buySub('month',150,30)">Купить</button></div>
+    <div class="plan"><span>Навсегда — 1000 🪙</span><button onclick="buySub('forever',1000,null)">Купить</button></div>
+    <div class="close-link" onclick="closeSubModal()">Закрыть</div>
+  </div>
+</div>
+
+<script src="https://telegram.org/js/telegram-widget.js?22"></script>
+<script>
+/* ===================================================================
+   НАСТРОЙКИ — вставьте сюда свои данные
+=================================================================== */
+const TELEGRAM_BOT_TOKEN   = "8165102306:AAH2EhDRIzOp588uleiCtwUpcrWdA6_e-HE";      // токен от @BotFather
+const TELEGRAM_BOT_USERNAME= "neuronka_ai_bot";              // username бота без @, нужен для Login Widget
+const ADMIN_CHAT_ID        = "ВАШ_CHAT_ID";          // ваш личный chat_id (фолбэк/лог)
+const DAY_END_HOUR  = 23;  // с какого часа блокировка
+const DAY_START_HOUR = 8;   // до какого часа блокировка
+/* =================================================================== */
+
+const API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+let user = null;
+let chats = [];
+let activeChatId = null;
+let pollTimer = null;
+let lastUpdateId = 0;
+
+/* ---------------- УТИЛИТЫ ХРАНЕНИЯ ---------------- */
+const store = {
+  get(k, def){ try{return JSON.parse(localStorage.getItem(k)) ?? def;}catch(e){return def;} },
+  set(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+};
+
+function toast(text, isError=false){
+  const t=document.getElementById('toast');
+  t.textContent=text;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2800);
+}
+
+/* ---------------- ВХОД ЧЕРЕЗ TELEGRAM ---------------- */
+function onTelegramAuth(tgUser){
+  // Подпись (hash) не проверяется на клиенте — для полноценной защиты нужен сервер.
+  loginUser({ id:String(tgUser.id), name:[tgUser.first_name,tgUser.last_name].filter(Boolean).join(' '), photo:tgUser.photo_url||'' });
+}
+window.onTelegramAuth = onTelegramAuth;
+
+function manualLogin(){
+  const name = document.getElementById('manualName').value.trim();
+  const chatId = document.getElementById('manualChatId').value.trim();
+  if(!name || !chatId){ toast('Заполните имя и chat_id', true); return; }
+  loginUser({ id:chatId, name, photo:'' });
+}
+
+function loginUser(u){
+  user = u;
+  store.set('neuronka_user', user);
+
+  // НейроКоины и подписка — новый пользователь
+  let profile = store.get('profile_'+user.id, null);
+  if(!profile){
+    profile = { coins:0, sub:null, subUntil:null, lastActive:null };
+    // реферальная ссылка ?ref=ID
+    const params = new URLSearchParams(location.search);
+    const ref = params.get('ref');
+    if(ref && ref !== user.id){
+      profile.coins += 15;
+      const refProfile = store.get('profile_'+ref, {coins:0,sub:null,subUntil:null,lastActive:null});
+      refProfile.coins += 15;
+      store.set('profile_'+ref, refProfile);
+      toast('Вы получили +15 НейроКоинов за переход по реферальной ссылке!');
+    }
+    store.set('profile_'+user.id, profile);
+  }
+  dailyActiveBonus();
+
+  chats = store.get('chats_'+user.id, []);
+  if(chats.length===0) createChat(true);
+
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').classList.add('active');
+  document.getElementById('userName').textContent = user.name;
+  renderChatList();
+  openChat(chats[0].id);
+  refreshCoinsUI();
+}
+
+function dailyActiveBonus(){
+  const profile = store.get('profile_'+user.id);
+  const today = new Date().toDateString();
+  if(profile.lastActive !== today){
+    profile.coins += 15;
+    profile.lastActive = today;
+    store.set('profile_'+user.id, profile);
+    toast('+15 НейроКоинов за активность сегодня');
+  }
+}
+
+/* ---------------- РЕФЕРАЛЬНАЯ ССЫЛКА ---------------- */
+function copyRefLink(){
+  const link = `${location.origin}${location.pathname}?ref=${user.id}`;
+  navigator.clipboard.writeText(link).then(()=>toast('Ссылка скопирована: '+link))
+    .catch(()=>toast(link));
+}
+
+/* ---------------- ЧАТЫ (МУЛЬТИ-ПРОЕКТЫ) ---------------- */
+function createChat(silent){
+  const id = 'c_'+Date.now();
+  const chat = { id, title:'Новый чат', messages:[] };
+  chats.unshift(chat);
+  store.set('chats_'+user.id, chats);
+  renderChatList();
+  if(!silent) openChat(id);
+}
+
+function renderChatList(){
+  const list = document.getElementById('chatList');
+  list.innerHTML='';
+  chats.forEach(c=>{
+    const div=document.createElement('div');
+    div.className='chat-item'+(c.id===activeChatId?' active':'');
+    div.textContent=c.title;
+    div.onclick=()=>openChat(c.id);
+    list.appendChild(div);
+  });
+}
+
+function openChat(id){
+  activeChatId=id;
+  const chat = chats.find(c=>c.id===id);
+  document.getElementById('chatTitle').textContent = chat.title;
+  renderChatList();
+  renderMessages();
+  updateInputPosition();
+  updateSubBadge();
+}
+
+function getActiveChat(){ return chats.find(c=>c.id===activeChatId); }
+
+function renderMessages(){
+  const box = document.getElementById('messages');
+  box.innerHTML='';
+  getActiveChat().messages.forEach(m=>{
+    const div=document.createElement('div');
+    div.className='msg '+m.role;
+    div.textContent=m.text;
+    box.appendChild(div);
+  });
+  box.scrollTop = box.scrollHeight;
+}
+
+function updateInputPosition(){
+  const wrap = document.getElementById('inputWrap');
+  const hasMsgs = getActiveChat().messages.length>0;
+  wrap.classList.toggle('centered', !hasMsgs);
+}
+
+/* ---------------- ПОДПИСКА / ЛИМИТ ПО ВРЕМЕНИ ---------------- */
+function isTopActive(){
+  const p = store.get('profile_'+user.id);
+  if(!p.sub) return false;
+  if(p.sub==='forever') return true;
+  return p.subUntil && Date.now() < p.subUntil;
+}
+
+function updateSubBadge(){
+  const badge = document.getElementById('subBadge');
+  badge.innerHTML = isTopActive() ? '<span class="badge-top">НЕЙРОНКА ТОП</span>' : '';
+}
+
+function isLockedNow(){
+  if(isTopActive()) return false;
+  const h = new Date().getHours();
+  if(DAY_END_HOUR > DAY_START_HOUR){
+    return h >= DAY_END_HOUR || h < DAY_START_HOUR;
+  }
+  return h >= DAY_END_HOUR && h < DAY_START_HOUR;
+}
+
+function openSubModal(){ document.getElementById('subModalBg').classList.add('show'); }
+function closeSubModal(){ document.getElementById('subModalBg').classList.remove('show'); }
+
+function buySub(type, price, days){
+  const p = store.get('profile_'+user.id);
+  if(p.coins < price){ toast('Недостаточно НейроКоинов', true); return; }
+  p.coins -= price;
+  p.sub = type;
+  p.subUntil = days ? Date.now() + days*86400000 : null;
+  store.set('profile_'+user.id, p);
+  refreshCoinsUI();
+  updateSubBadge();
+  closeSubModal();
+  toast('Подписка Нейронка ТОП активирована!');
+}
+
+function refreshCoinsUI(){
+  document.getElementById('coinsVal').textContent = store.get('profile_'+user.id).coins;
+}
+
+/* ---------------- ОТПРАВКА СООБЩЕНИЙ ---------------- */
+const input = document.getElementById('messageInput');
+input.addEventListener('input', ()=>{ input.style.height='auto'; input.style.height=input.scrollHeight+'px'; });
+input.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+});
+
+async function sendMessage(){
+  const text = input.value.trim();
+  if(!text) return;
+
+  if(isLockedNow()){
+    showLockNotice();
+    return;
+  }
+
+  const chat = getActiveChat();
+  chat.messages.push({role:'user', text});
+  if(chat.title==='Новый чат') chat.title = text.slice(0,28);
+  store.set('chats_'+user.id, chats);
+  input.value=''; input.style.height='auto';
+  renderChatList(); renderMessages(); updateInputPosition();
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  showTyping(true);
+
+  try{
+    const url = `${API}/sendMessage?chat_id=${encodeURIComponent(user.id)}&text=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.ok) throw new Error(data.description||'Telegram API error');
+    await waitForReply();
+  }catch(err){
+    showTyping(false);
+    addSystemMessage('Сервер недоступен');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function showLockNotice(){
+  const n = document.getElementById('lockNotice');
+  n.style.display='block';
+  n.textContent = 'Лимит исчерпан. Купите подписку Нейронка ТОП или ждите до 8:00 утра';
+  setTimeout(()=>n.style.display='none', 4000);
+}
+
+function addSystemMessage(text){
+  const chat = getActiveChat();
+  chat.messages.push({role:'system', text});
+  store.set('chats_'+user.id, chats);
+  renderMessages();
+}
+
+function showTyping(on){
+  const box = document.getElementById('messages');
+  let t = document.getElementById('typingIndicator');
+  if(on){
+    if(!t){
+      t = document.createElement('div');
+      t.id='typingIndicator';
+      t.className='typing';
+      t.innerHTML='<span></span><span></span><span></span>';
+      box.appendChild(t);
+      box.scrollTop = box.scrollHeight;
+    }
+  }else{
+    if(t) t.remove();
+  }
+}
+
+/* Опрос Telegram getUpdates до получения ответа бота/оператора в этом чате */
+async function waitForReply(){
+  const start = Date.now();
+  const timeoutMs = 60000;
+  while(Date.now()-start < timeoutMs){
+    try{
+      const res = await fetch(`${API}/getUpdates?offset=${lastUpdateId+1}&timeout=2`);
+      const data = await res.json();
+      if(!data.ok) throw new Error('bad getUpdates');
+      for(const upd of data.result){
+        lastUpdateId = Math.max(lastUpdateId, upd.update_id);
+        const msg = upd.message;
+        if(msg && String(msg.chat.id)===String(user.id) && msg.from && msg.from.is_bot===false && msg.text){
+          // сообщение от собеседника в этом чате (не от нас самих)
+        }
+        if(msg && String(msg.chat.id)===String(user.id) && (msg.from?.is_bot || msg.from?.id !== Number(user.id))){
+          showTyping(false);
+          addBotMessage(msg.text || (msg.document?'[файл]':msg.photo?'[фото]':'[сообщение]'));
+          return;
+        }
+      }
+    }catch(e){
+      showTyping(false);
+      addSystemMessage('Сервер недоступен');
+      return;
+    }
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  showTyping(false);
+  addSystemMessage('Сервер недоступен');
+}
+
+function addBotMessage(text){
+  const chat = getActiveChat();
+  chat.messages.push({role:'bot', text});
+  store.set('chats_'+user.id, chats);
+  renderMessages();
+}
+
+/* ---------------- ФАЙЛЫ И ФОТО ---------------- */
+async function handleFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(isLockedNow()){ showLockNotice(); e.target.value=''; return; }
+
+  const isImage = file.type.startsWith('image/');
+  const method = isImage ? 'sendPhoto' : 'sendDocument';
+  const field = isImage ? 'photo' : 'document';
+
+  const chat = getActiveChat();
+  chat.messages.push({role:'user', text:`📎 ${file.name}`});
+  store.set('chats_'+user.id, chats);
+  renderMessages(); updateInputPosition();
+  showTyping(true);
+
+  const form = new FormData();
+  form.append('chat_id', user.id);
+  form.append(field, file);
+
+  try{
+    const res = await fetch(`${API}/${method}`, {method:'POST', body:form});
+    const data = await res.json();
+    if(!data.ok) throw new Error('upload failed');
+    await waitForReply();
+  }catch(err){
+    showTyping(false);
+    addSystemMessage('Сервер недоступен');
+  }
+  e.target.value='';
+}
+
+/* ---------------- ИНИЦИАЛИЗАЦИЯ ---------------- */
+(function init(){
+  // Telegram Login Widget
+  if(TELEGRAM_BOT_USERNAME && TELEGRAM_BOT_USERNAME!=='ваш_бот'){
+    const container = document.getElementById('telegram-login-container');
+    const script = document.createElement('script');
+    script.src='https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', TELEGRAM_BOT_USERNAME);
+    script.setAttribute('data-size','large');
+    script.setAttribute('data-radius','12');
+    script.setAttribute('data-onauth','onTelegramAuth(user)');
+    script.setAttribute('data-request-access','write');
+    container.appendChild(script);
+  }
+
+  const saved = store.get('neuronka_user', null);
+  if(saved) loginUser(saved);
+})();
+</script>
+</body>
+</html>
