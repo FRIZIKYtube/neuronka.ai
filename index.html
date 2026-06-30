@@ -550,6 +550,7 @@ async function sendMessage(){
     store.set('chats_'+user.id, chats);
     await waitForReply();
   }catch(err){
+    console.error('neuronka.ai sendMessage error:', err);
     showTyping(false);
     addSystemMessage('Сервер недоступен');
   }finally{
